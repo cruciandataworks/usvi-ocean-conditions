@@ -76,6 +76,7 @@ jobs:
       - name: Daily data commit
         run: |
           # scheduled and chained runs commit only once a day; manual runs always do
+          git fetch -q --deepen=200 || true   # the checkout has only the latest commit
           if [ "${{ github.event_name == 'schedule' || inputs.chained == true }}" = "true" ] && \
              [ "$(git log -1 --author=cdw-bot --format=%cd --date=format:%F)" = "$(date -u +%F)" ]; then exit 0; fi
           git config user.name "cdw-bot"
