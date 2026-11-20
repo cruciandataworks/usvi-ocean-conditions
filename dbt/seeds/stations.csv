@@ -1,0 +1,13 @@
+station_id,source,name,island,lat,lon,kind
+9751639,noaa_coops,Charlotte Amalie,St. Thomas,18.3306,-64.9258,tide_gauge
+9751381,noaa_coops,Lameshur Bay,St. John,18.3182,-64.7242,tide_gauge
+9751364,noaa_coops,Christiansted Harbor,St. Croix,17.7477,-64.6984,tide_gauge
+9751401,noaa_coops,Lime Tree Bay,St. Croix,17.6947,-64.7538,tide_gauge
+usvi,noaa_crw,Virgin Islands (regional),Territory,18.2000,-64.5500,coral_region
+sw_st_thomas,noaa_crw,Southwest St. Thomas,St. Thomas,,,coral_pixel
+n_st_thomas,noaa_crw,North St. Thomas,St. Thomas,,,coral_pixel
+s_st_john,noaa_crw,South St. John,St. John,,,coral_pixel
+e_st_john,noaa_crw,East St. John,St. John,,,coral_pixel
+w_st_croix,noaa_crw,West St. Croix,St. Croix,17.775,-64.625,coral_pixel
+ne_st_croix,noaa_crw,Northeast St. Croix,St. Croix,,,coral_pixel
+VI1,caricoos,Buoy VI1 south of St. John (NDBC 41052),St. John,18.2505,-64.7625,buoy

@@ -1,0 +1,7 @@
+usvi_ocean:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: ../warehouse/ocean.duckdb
+      threads: 4

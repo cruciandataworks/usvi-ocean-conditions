@@ -1,0 +1,112 @@
+# Runs the whole pipeline every 3 hours. Tide gauges post every 6 minutes and Coral
+# Reef Watch once a day, so 3 hours keeps the page current without hammering NOAA.
+#
+# The Parquet lake (all history, ~7 MB) is NOT stored in git. It lives as a single
+# file attached to a GitHub release called "lake": downloaded at the start, uploaded
+# again at the end. If it is ever lost, the collectors see an empty lake and rebuild
+# the full history from the agencies (a "backfill") - the pipeline heals itself.
+name: Ocean conditions refresh
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"   # 00:17, 03:17, ... UTC (8:17 PM, 11:17 PM, ... in St. Croix)
+  workflow_dispatch:
+    inputs:
+      test_failure:
+        description: "Fail on purpose to test the failure alert"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # upload the lake to the release, daily data commit
+  issues: write     # alert issues
+
+concurrency:        # never let two runs write the lake at the same time
+  group: refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      FTP_SERVER: ${{ secrets.FTP_SERVER }}   # empty until the secret exists
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download the lake from the "lake" release
+        run: |
+          if gh release download lake --pattern lake.tar.gz --dir /tmp 2>/dev/null; then
+            tar -xzf /tmp/lake.tar.gz
+            echo "Restored lake: $(du -sh lake | cut -f1)"
+          else
+            echo "::warning::No lake release found - this run will backfill the full history."
+          fi
+
+      - name: Run pipeline (collect, load, dbt build, export, alerts)
+        env:
+          TEST_FAILURE: ${{ inputs.test_failure }}
+          ALERT_ASSIGNEE: ${{ vars.ALERT_ASSIGNEE }}
+        run: python run_pipeline.py
+
+      - name: Upload the lake back to the release
+        run: |
+          tar -czf /tmp/lake.tar.gz lake
+          gh release view lake >/dev/null 2>&1 || \
+            gh release create lake --title "Data lake (auto-updated)" \
+              --notes "Parquet lake used by the refresh workflow. Replaced every run; do not delete unless you want a full backfill."
+          gh release upload lake /tmp/lake.tar.gz --clobber
+
+      # GitHub pauses scheduled workflows in repositories with no commits for 60 days.
+      # One small commit a day (the 00:17 UTC run, or any manual run) prevents that.
+      - name: Daily data commit
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%H)" != "00" ]; then exit 0; fi
+          git config user.name "cdw-bot"
+          git config user.email "hello@cruciandataworks.com"
+          git add dashboard/data/summary.json
+          git diff --cached --quiet || git commit -m "Daily ocean conditions snapshot"
+          git push
+
+      # Publish the refreshed dashboard to cruciandataworks.com (Hostinger) over FTP.
+      # Skipped until the FTP secrets are added in Settings > Secrets and variables > Actions.
+      - name: Upload dashboard to Hostinger
+        if: ${{ env.FTP_SERVER != '' }}
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./dashboard/
+          server-dir: ${{ vars.FTP_SERVER_DIR || '/public_html/projects/ocean-conditions/' }}
+
+      # If any step fails, open (or update) one "refresh failed" issue assigned to the
+      # repository admin. Data alerts (bleaching, flooding, stale feeds) are separate
+      # issues opened by step 7 of the pipeline.
+      - name: Alert on failure
+        if: ${{ failure() }}
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ASSIGNEE: ${{ vars.ALERT_ASSIGNEE || 'OrlandoSpears' }}
+        run: |
+          gh label create refresh-failure --color C8553D --description "Scheduled refresh failed" 2>/dev/null || true
+          body="The ocean conditions refresh failed on $(date -u '+%Y-%m-%d %H:%M UTC').
+
+          Run log: $RUN_URL
+
+          The website still shows the last good data. Close this issue once the cause is fixed."
+          open=$(gh issue list --label refresh-failure --state open --json number -q '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "$body"
+          else
+            gh issue create --title "Ocean conditions refresh failed" --label refresh-failure --assignee "$ASSIGNEE" --body "$body"
+          fi

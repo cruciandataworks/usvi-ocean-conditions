@@ -1,0 +1,24 @@
+version: 2
+sources:
+  - name: raw
+    description: Parquet lake tables loaded by pipeline/step4_load.py
+    schema: raw
+    tables:
+      - name: tide_6min
+        description: NOAA CO-OPS 6-minute water level (mostly preliminary), metres above MHHW
+      - name: tide_hourly
+        description: NOAA CO-OPS verified hourly heights, metres above MHHW
+      - name: tide_predictions
+        description: NOAA astronomical tide predictions, hourly, metres above MHHW
+      - name: water_temp_hourly
+        description: NOAA CO-OPS water temperature at the gauges, hourly, degrees C
+      - name: tide_stations
+        description: Gauge metadata - datums and NOAA flood levels (metres above station datum)
+      - name: coral_daily
+        description: NOAA Coral Reef Watch daily virtual-station values since 1985
+      - name: buoy_waves
+        description: CARICOOS VI1 hourly waves with QARTOD flags
+      - name: buoy_ocean
+        description: CARICOOS VI1 water temperature and salinity at 1 m with QARTOD flags
+      - name: source_health
+        description: One row per feed - last attempt, last success, failures in a row

@@ -1,0 +1,15 @@
+# The Parquet lake lives in a GitHub release asset, not in git (see docs)
+lake/
+# The database is rebuilt every run
+warehouse/
+# dbt build output
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+dbt/.user.yml
+# 300 KB of tide arrays regenerated every run; only the small summary is committed
+dashboard/data/tides.json

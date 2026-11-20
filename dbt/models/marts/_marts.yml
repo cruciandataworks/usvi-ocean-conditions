@@ -1,0 +1,43 @@
+version: 2
+models:
+  - name: fct_water_level_hourly
+    description: Observed vs predicted water level per gauge and hour, verified where available
+    tests:
+      - dbt_unique_combination:
+          arguments: {columns: [station_id, time_utc]}
+    columns:
+      - name: water_level_id
+        tests: [not_null, unique]
+      - name: predicted_m
+        description: Missing only if NOAA has no prediction for that hour
+        tests:
+          - not_null:
+              config: {severity: warn}
+      - name: residual_m
+        tests:
+          - dbt_expect_between:
+              arguments: {min_value: -1.0, max_value: 1.5}
+  - name: mart_coral_daily
+    columns:
+      - name: alert_label
+        tests: [not_null]
+  - name: mart_feed_freshness
+    tests:
+      - assert_no_rows_where:
+          arguments: {condition: "is_stale and feed in ('tide_6min')"}
+          config: {severity: warn}
+    columns:
+      - name: age_hours
+        tests: [not_null]
+  - name: mart_alerts
+    columns:
+      - name: alert_key
+        tests: [not_null, unique]
+      - name: severity
+        tests:
+          - accepted_values:
+              arguments: {values: [low, medium, high]}
+  - name: mart_tide_recent
+    tests:
+      - dbt_unique_combination:
+          arguments: {columns: [station_id, time_utc]}

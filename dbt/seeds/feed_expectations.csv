@@ -1,0 +1,7 @@
+feed,dataset,max_age_hours,meaning
+tide_6min,Water level (6-minute),6,NOAA posts every 6 minutes; 6 hours of silence means a gauge or its link is down
+water_temp,Water temperature (hourly),24,Sensor reports with the gauge
+tide_verified,Verified hourly water level,2400,NOAA reviews data 1-2 months behind; 100 days means review has stalled
+coral_daily,Coral heat stress (daily),72,Coral Reef Watch publishes one value per day with a 1-2 day lag
+buoy_waves,Buoy waves (hourly),48,The buoy reports hourly
+buoy_ocean,Buoy water temperature (hourly),48,The buoy reports hourly

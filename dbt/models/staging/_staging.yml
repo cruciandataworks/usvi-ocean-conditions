@@ -1,0 +1,77 @@
+version: 2
+models:
+  - name: stg_tide_6min
+    tests:
+      - dbt_unique_combination:
+          arguments: {columns: [station_id, time_utc]}
+    columns:
+      - name: water_level_m
+        tests:
+          - not_null
+          - dbt_expect_between:
+              arguments: {min_value: -1.5, max_value: 2.5}
+      - name: quality
+        tests:
+          - accepted_values:
+              arguments: {values: [p, v]}
+  - name: stg_tide_hourly
+    tests:
+      - dbt_unique_combination:
+          arguments: {columns: [station_id, time_utc]}
+    columns:
+      - name: water_level_m
+        tests:
+          - not_null
+          - dbt_expect_between:
+              arguments: {min_value: -1.5, max_value: 2.5}
+  - name: stg_tide_predictions
+    tests:
+      - dbt_unique_combination:
+          arguments: {columns: [station_id, time_utc]}
+    columns:
+      - name: predicted_m
+        tests:
+          - dbt_expect_between:
+              arguments: {min_value: -1.0, max_value: 1.0}
+  - name: stg_tide_stations
+    columns:
+      - name: station_id
+        tests: [not_null, unique]
+      - name: minor_flood_m
+        tests:
+          - not_null
+          - dbt_expect_between:
+              arguments: {min_value: 0.2, max_value: 1.0}
+  - name: stg_coral_daily
+    tests:
+      - dbt_unique_combination:
+          arguments: {columns: [station_id, obs_date]}
+    columns:
+      - name: dhw
+        tests:
+          - dbt_expect_between:
+              arguments: {min_value: 0, max_value: 40}
+      - name: sst_c
+        tests:
+          - dbt_expect_between:
+              arguments: {min_value: 20, max_value: 34}
+      - name: baa_7day_max
+        tests:
+          - not_null
+          - accepted_values:
+              arguments: {values: [0, 1, 2, 3, 4, 5, 6, 7]}
+  - name: stg_buoy_waves
+    tests:
+      - dbt_unique_combination:
+          arguments: {columns: [station_id, time_utc]}
+    columns:
+      - name: wave_height_m
+        tests:
+          - dbt_expect_between:
+              arguments: {min_value: 0, max_value: 15}
+  - name: stg_buoy_ocean
+    columns:
+      - name: water_temp_c
+        tests:
+          - dbt_expect_between:
+              arguments: {min_value: 20, max_value: 34}

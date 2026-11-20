@@ -1,0 +1,23 @@
+version: 2
+seeds:
+  - name: stations
+    description: Every station in the project, with island and kind
+    config:
+      column_types: {station_id: varchar, lat: double, lon: double}
+    columns:
+      - name: station_id
+        tests: [not_null, unique]
+      - name: kind
+        tests:
+          - accepted_values:
+              arguments: {values: [tide_gauge, coral_region, coral_pixel, buoy]}
+  - name: bleaching_levels
+    description: NOAA Coral Reef Watch Bleaching Alert Area codes
+    columns:
+      - name: baa
+        tests: [not_null, unique]
+  - name: feed_expectations
+    description: How often each feed should update - the basis for "stale" alerts
+    columns:
+      - name: feed
+        tests: [not_null, unique]
