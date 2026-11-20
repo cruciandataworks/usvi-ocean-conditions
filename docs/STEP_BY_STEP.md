@@ -370,7 +370,7 @@ Steps 1–3 talk to three different agencies, and one of them being down must no
 
 **Why the lake is not in git.** It changes every 3 hours. Committing it would add thousands of binary versions to the repository's history. A release asset is a single file that gets replaced, so the repository stays small.
 
-**Self-healing.** If the release file is ever missing or deleted, the collectors find an empty lake, have no watermark, and backfill the full history from the agencies. The first run after that takes longer, then everything carries on.
+**Self-healing.** If the release file is ever missing or deleted, the collectors find an empty lake, have no watermark, and backfill the full history from the agencies. We tested this by running the collectors against an empty folder: the full history came back in about 2½ minutes with the same row counts as the original lake (the 6-minute table differs by a few rows only because its 60-day starting window had moved on).
 
 **Why the daily commit.** GitHub pauses scheduled workflows in repositories with no commits for 60 days. One small commit a day prevents that, and gives a day-by-day history of the summary.
 
