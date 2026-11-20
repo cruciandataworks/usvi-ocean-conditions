@@ -364,9 +364,11 @@ Steps 1–3 talk to three different agencies, and one of them being down must no
 1. Downloads the lake from a GitHub release called `lake`.
 2. Runs the pipeline.
 3. Uploads the updated lake back to the same release, replacing the old file.
-4. Once a day (the 00:17 UTC run) commits `dashboard/data/summary.json`.
+4. Once a day (the first automatic run of the day, or any manual run) commits `dashboard/data/summary.json`.
 5. Uploads the dashboard to cruciandataworks.com over FTP, once the FTP secrets exist.
 6. If anything failed, opens or updates one "refresh failed" issue.
+
+**A backup for GitHub's scheduler.** GitHub can take a long time to start firing schedules in a new repository, and it sometimes drops runs. So every run that was not started by the schedule ends with a small second job, `next-run`. That job waits until 3 hours after the run began and then starts the next run itself (`chained=true`). It first checks whether any newer run has started in the meantime (a scheduled run, a manual run or another chain); if one has, it stops. That keeps only one chain going, and once the schedule fires, the chain ends on its own. The wait runs in its own job so it never blocks the refresh. It uses runner time, which is free in a public repository. Set the repository variable `CHAIN_RUNS` to `false` to turn the backup off.
 
 **Why the lake is not in git.** It changes every 3 hours. Committing it would add thousands of binary versions to the repository's history. A release asset is a single file that gets replaced, so the repository stays small.
 

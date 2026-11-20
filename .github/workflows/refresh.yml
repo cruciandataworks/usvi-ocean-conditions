@@ -16,18 +16,23 @@ on:
         description: "Fail on purpose to test the failure alert"
         type: boolean
         default: false
+      chained:
+        description: "Started by the previous run (the backup for GitHub's scheduler)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write   # upload the lake to the release, daily data commit
   issues: write     # alert issues
+  actions: write    # start the next run when GitHub's scheduler is not firing
 
-concurrency:        # never let two runs write the lake at the same time
-  group: refresh
-  cancel-in-progress: false
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    concurrency:      # never let two runs write the lake at the same time
+      group: refresh
+      cancel-in-progress: false
     timeout-minutes: 40
     env:
       FTP_SERVER: ${{ secrets.FTP_SERVER }}   # empty until the secret exists
@@ -67,10 +72,12 @@ jobs:
           gh release upload lake /tmp/lake.tar.gz --clobber
 
       # GitHub pauses scheduled workflows in repositories with no commits for 60 days.
-      # One small commit a day (the 00:17 UTC run, or any manual run) prevents that.
+      # One small commit a day (the first automatic run of the day, or any manual run) prevents that.
       - name: Daily data commit
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%H)" != "00" ]; then exit 0; fi
+          # scheduled and chained runs commit only once a day; manual runs always do
+          if [ "${{ github.event_name == 'schedule' || inputs.chained == true }}" = "true" ] && \
+             [ "$(git log -1 --author=cdw-bot --format=%cd --date=format:%F)" = "$(date -u +%F)" ]; then exit 0; fi
           git config user.name "cdw-bot"
           git config user.email "hello@cruciandataworks.com"
           git add dashboard/data/summary.json
@@ -110,3 +117,31 @@ jobs:
           else
             gh issue create --title "Ocean conditions refresh failed" --label refresh-failure --assignee "$ASSIGNEE" --body "$body"
           fi
+
+  # Backup for GitHub's scheduler, which can take a long time to start firing in a new
+  # repository and sometimes drops runs. This small job waits until 3 hours after the
+  # refresh began, then starts the next run, unless any newer run of this workflow has
+  # started in the meantime (a scheduled run, a manual run or another chain). So there is
+  # only ever one chain, and once the schedule fires, the chain stops by itself.
+  # It runs in its own job so the wait never blocks other runs. Waiting uses free runner
+  # time in a public repository. Set the repository variable CHAIN_RUNS to "false" to
+  # turn this off.
+  next-run:
+    needs: refresh
+    if: ${{ !cancelled() && vars.CHAIN_RUNS != 'false' && github.event_name != 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 210
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Wait, then start the next run if nothing newer has started
+        run: |
+          started=$(gh run view ${{ github.run_id }} --json createdAt -q .createdAt)
+          wait=$(( $(date -u -d "$started" +%s) + 10800 - $(date -u +%s) ))
+          if [ "$wait" -gt 0 ]; then echo "Waiting ${wait}s"; sleep "$wait"; fi
+          newer=$(gh run list --workflow refresh.yml --created ">$started" --json databaseId \
+                  -q '[.[] | select(.databaseId != ${{ github.run_id }})] | length')
+          if [ "$newer" != "0" ]; then echo "A newer run has started; it carries on from here."; exit 0; fi
+          gh workflow run refresh.yml --ref ${{ github.ref_name }} -f chained=true
+          echo "Started the next run."
